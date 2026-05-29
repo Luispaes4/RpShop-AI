@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Assistente Virtual</title>
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --chat-bg: #ffffff;
+            --text-color: #1e293b;
+            --bot-msg-bg: #f1f5f9;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f8fafc;
+        }
+
+        /* Botão Flutuante */
+        #chat-widget-button {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            font-size: 24px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            transition: transform 0.3s ease;
+            z-index: 1000;
+        }
+
+        #chat-widget-button:hover {
+            transform: scale(1.05);
+        }
+
+        /* Janela do Chat */
+        #chat-container {
+            display: none;
+            position: fixed;
+            bottom: 90px;
+            right: 20px;
+            width: 380px;
+            height: 500px;
+            background-color: var(--chat-bg);
+            border-radius: 16px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+            flex-direction: column;
+            overflow: hidden;
+            z-index: 1000;
+            border: 1px solid #e2e8f0;
+        }
+
+        /* Cabeçalho */
+        .chat-header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 16px;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .chat-header span {
+            font-size: 16px;
+        }
+
+        /* Área de Mensagens */
+        .chat-messages {
+            flex: 1;
+            padding: 16px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .message {
+            max-width: 80%;
+            padding: 10px 14px;
+            border-radius: 12px;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        .message.bot {
+            background-color: var(--bot-msg-bg);
+            color: var(--text-color);
+            align-self: flex-start;
+            border-bottom-left-radius: 2px;
+        }
+
+        .message.user {
+            background-color: var(--primary-color);
+            color: white;
+            align-self: flex-end;
+            border-bottom-right-radius: 2px;
+        }
+
+        /* Área de Input */
+        .chat-input-area {
+            padding: 12px;
+            border-top: 1px solid #e2e8f0;
+            display: flex;
+            gap: 8px;
+            background: #fafafa;
+        }
+
+        .chat-input-area input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            outline: none;
+            font-size: 14px;
+        }
+
+        .chat-input-area input:focus {
+            border-color: var(--primary-color);
+        }
+
+        .chat-input-area button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .chat-input-area button:hover {
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+
+    <button id="chat-widget-button" onclick="toggleChat()">💬</button>
+
+    <div id="chat-container">
+        <div class="chat-header">
+            <span>💻 Assistente Virtual</span>
+            <button onclick="toggleChat()" style="background:none; border:none; color:white; cursor:pointer; font-size:16px;">✕</button>
+        </div>
+        <div class="chat-messages" id="chatMessages">
+            <div class="message bot">Olá! Sou o assistente virtual da loja. Como posso ajudar você hoje?</div>
+        </div>
+        <div class="chat-input-area">
+            <input type="text" id="userInput" placeholder="Digite sua dúvida aqui..." onkeypress="handleKeyPress(event)">
+            <button onclick="enviarMensagem()">Enviar</button>
+        </div>
+    </div>
+
+    <script>
+        const chatContainer = document.getElementById('chat-container');
+        const chatMessages = document.getElementById('chatMessages');
+        const userInput = document.getElementById('userInput');
+
+        function toggleChat() {
+            if (chatContainer.style.display === 'flex') {
+                chatContainer.style.display = 'none';
+            } else {
+                chatContainer.style.display = 'flex';
+            }
+        }
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                enviarMensagem();
+            }
+        }
+
+        async function enviarMensagem() {
+            const texto = userInput.value.trim();
+            if (!texto) return;
+
+            // Adiciona mensagem do usuário na tela
+            adicionarMensagem(texto, 'user');
+            userInput.value = '';
+
+            // Adiciona indicador de "digitando..."
+            const digitandoId = adicionarMensagem('Digitando...', 'bot');
+
+            try {
+                // Comunicação com o Back-end em Python
+                const response = await fetch('http://localhost:5000/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ mensagem: texto })
+                });
+
+                const data = await response.json();
+                
+                // Remove o "digitando..." e adiciona a resposta real
+                document.getElementById(digitandoId).remove();
+                
+                if (data.resposta) {
+                    adicionarMensagem(data.resposta, 'bot');
+                } else {
+                    adicionarMensagem('Desculpe, ocorreu um erro técnico.', 'bot');
+                }
+
+            } catch (error) {
+                console.error(error);
+                document.getElementById(digitandoId).remove();
+                adicionarMensagem('Erro ao conectar ao servidor de IA.', 'bot');
+            }
+        }
+
+        function adicionarMensagem(texto, remetente) {
+            const id = 'msg-' + Date.now();
+            const div = document.createElement('div');
+            div.id = id;
+            div.className = `message ${remetente}`;
+            div.textContent = texto;
+            chatMessages.appendChild(div);
+            chatMessages.scrollTop = chatMessages.scrollHeight; // Rola para baixo
+            return id;
+        }
+    </script>
+</body>
+</html>
